@@ -49,6 +49,18 @@ DISPLAY_NAME = {
 # Helpers
 # ----------------------------
 
+def make_arrow_safe(df: pd.DataFrame) -> pd.DataFrame:
+    df2 = df.copy()
+    for c in df2.columns:
+        if df2[c].dtype == "object":
+            df2[c] = df2[c].map(
+                lambda v: (
+                    "" if pd.isna(v)
+                    else (v.decode("utf-8", "ignore") if isinstance(v, (bytes, bytearray)) else str(v))
+                )
+            ).astype("string")
+    return df2
+
 def _normalise_colname(s: str) -> str:
     s = (s or "").replace("\ufeff", "")
     s = s.strip()
@@ -957,7 +969,7 @@ sku_cols_slim = [c for c in sku_cols_slim if c in df_view.columns]
 
 st.caption("Table is intentionally slim to avoid Streamlit payload limits. Use the SKU drill-down below for full detail.")
 st.dataframe(
-    df_view[sku_cols_slim],
+    make_arrow_safe(df_view[sku_cols_slim]),
     use_container_width=True,
     height=520,
     column_config={
@@ -985,8 +997,18 @@ sku_pick = st.selectbox(
 
 row = df_view[df_view[COL_PRODUCT_CODE].astype(str) == str(sku_pick)].head(1)
 if not row.empty:
-    # Show all fields for the one row
-    st.dataframe(row.T, use_container_width=True)
+    vals = row.iloc[0].to_dict()
+    kv = pd.DataFrame(
+        {
+            "Field": list(vals.keys()),
+            "Value": [
+                "" if pd.isna(v) else (v.decode("utf-8", "ignore") if isinstance(v, (bytes, bytearray)) else str(v))
+                for v in vals.values()
+            ],
+        }
+    )
+    st.dataframe(kv, use_container_width=True, hide_index=True)
+
 
 
 # Export
