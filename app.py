@@ -911,8 +911,8 @@ st.dataframe(
 
 # SKU-level table with filters
 st.subheader("SKU-level detail (filterable)")
-f1, f2, f3, f4 = st.columns([2, 2, 2, 2])
 
+f1, f2, f3, f4 = st.columns([2, 2, 2, 2])
 with f1:
     sel_sup = st.multiselect("Filter Supplier", options=sorted([x for x in scenario_df[COL_SUPPLIER].dropna().unique() if str(x).strip() != ""]))
 with f2:
@@ -932,50 +932,62 @@ if sel_sub:
 if only_alerts:
     df_view = df_view[df_view["alerts"] != ""]
 
-sku_cols = [
-    COL_PRODUCT_CODE, COL_PRODUCT_DESC, COL_SUPPLIER, COL_CATEGORY, COL_SUBCATEGORY, COL_CURRENCY,
+# Slim table by default (reduces payload a lot)
+sku_cols_slim = [
+    COL_PRODUCT_CODE,
+    COL_PRODUCT_DESC,
+    COL_SUPPLIER,
+    COL_CATEGORY,
+    COL_SUBCATEGORY,
     "alerts",
-    COL_QTY, "qty_new", "qty_change_%",
-    COL_LANDED, "landed_cost_new_aud",
-    COL_WHOLESALE, "wholesale_price_new_aud", "wholesale_delta_aud", "wholesale_change_%",
-    COL_RRP_INC, "rrp_new_inc_gst", "rrp_delta_aud", "rrp_change_%",
-    "wholesaler_gm%_old_pct", "wholesaler_gm%_new_pct", "wholesaler_gm%_change_pp",
-    "retailer_gm%_old_pct", "retailer_gm%_new_pct",
-    "revenue_old_aud", "revenue_new_aud", "revenue_delta_aud",
-    "gp_old_aud", "gp_new_aud", "gp_delta_aud",
+    COL_QTY,
+    "qty_new",
+    "qty_change_%",
+    COL_WHOLESALE,
+    "wholesale_price_new_aud",
+    COL_RRP_INC,
+    "rrp_new_inc_gst",
+    "wholesaler_gm%_old_pct",
+    "wholesaler_gm%_new_pct",
+    "gp_old_aud",
+    "gp_new_aud",
+    "gp_delta_aud",
 ]
+sku_cols_slim = [c for c in sku_cols_slim if c in df_view.columns]
 
+st.caption("Table is intentionally slim to avoid Streamlit payload limits. Use the SKU drill-down below for full detail.")
 st.dataframe(
-    df_view[sku_cols],
+    df_view[sku_cols_slim],
     use_container_width=True,
+    height=520,
     column_config={
         COL_QTY: st.column_config.NumberColumn("Units old", format="%,.0f"),
         "qty_new": st.column_config.NumberColumn("Units new", format="%,.0f"),
         "qty_change_%": st.column_config.NumberColumn("Units change %", format="%.2f%%"),
-        COL_LANDED: st.column_config.NumberColumn("Landed old", format="$%,.0f"),
-        "landed_cost_new_aud": st.column_config.NumberColumn("Landed new", format="$%,.0f"),
         COL_WHOLESALE: st.column_config.NumberColumn("Wholesale old", format="$%,.0f"),
         "wholesale_price_new_aud": st.column_config.NumberColumn("Wholesale new", format="$%,.0f"),
-        "wholesale_delta_aud": st.column_config.NumberColumn("Wholesale change", format="$%,.0f"),
-        "wholesale_change_%": st.column_config.NumberColumn("Wholesale change %", format="%.2f%%"),
         COL_RRP_INC: st.column_config.NumberColumn("RRP old (inc GST)", format="$%,.0f"),
         "rrp_new_inc_gst": st.column_config.NumberColumn("RRP new (inc GST)", format="$%,.0f"),
-        "rrp_delta_aud": st.column_config.NumberColumn("RRP change", format="$%,.0f"),
-        "rrp_change_%": st.column_config.NumberColumn("RRP change %", format="%.2f%%"),
         "wholesaler_gm%_old_pct": st.column_config.NumberColumn("Wholesaler GM% old", format="%.2f%%"),
         "wholesaler_gm%_new_pct": st.column_config.NumberColumn("Wholesaler GM% new", format="%.2f%%"),
-        "wholesaler_gm%_change_pp": st.column_config.NumberColumn("Wholesaler GM% change (pp)", format="%.2f"),
-        "retailer_gm%_old_pct": st.column_config.NumberColumn("Retailer GM% old", format="%.2f%%"),
-        "retailer_gm%_new_pct": st.column_config.NumberColumn("Retailer GM% new", format="%.2f%%"),
-        "revenue_old_aud": st.column_config.NumberColumn("Revenue old", format="$%,.0f"),
-        "revenue_new_aud": st.column_config.NumberColumn("Revenue new", format="$%,.0f"),
-        "revenue_delta_aud": st.column_config.NumberColumn("Revenue change", format="$%,.0f"),
         "gp_old_aud": st.column_config.NumberColumn("GP old", format="$%,.0f"),
         "gp_new_aud": st.column_config.NumberColumn("GP new", format="$%,.0f"),
         "gp_delta_aud": st.column_config.NumberColumn("GP change", format="$%,.0f"),
     },
-    height=520,
 )
+
+# Drill-down: select a SKU code and show full detail (only 1 row sent)
+st.subheader("Selected SKU drill-down")
+sku_pick = st.selectbox(
+    "Select a SKU to view full detail",
+    options=df_view[COL_PRODUCT_CODE].astype(str).tolist()
+)
+
+row = df_view[df_view[COL_PRODUCT_CODE].astype(str) == str(sku_pick)].head(1)
+if not row.empty:
+    # Show all fields for the one row
+    st.dataframe(row.T, use_container_width=True)
+
 
 # Export
 st.subheader("Export")
